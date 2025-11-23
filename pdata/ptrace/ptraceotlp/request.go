@@ -45,6 +45,15 @@ func (ms ExportRequest) MarshalProto() ([]byte, error) {
 	return buf, nil
 }
 
+func (ms ExportRequest) MarshalProtoTo(dst []byte) ([]byte, error) {
+	_ = ms.orig.MarshalProto(dst)
+	return dst, nil
+}
+
+func (ms ExportRequest) SizeProto() int {
+	return ms.orig.SizeProto()
+}
+
 // UnmarshalProto unmarshalls ExportRequest from proto bytes.
 func (ms ExportRequest) UnmarshalProto(data []byte) error {
 	err := ms.orig.UnmarshalProto(data)
