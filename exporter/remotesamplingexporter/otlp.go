@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
-	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/persistentqueue"
 	"github.com/cespare/xxhash/v2"
 	"go.opentelemetry.io/collector/component"
@@ -44,8 +43,7 @@ import (
 )
 
 var (
-	writeRequestBufPool    bytesutil.ByteBufferPool
-	samplingRequestBufPool bytesutil.ByteBufferPool
+	writeRequestBufPool bytesutil.ByteBufferPool
 )
 
 var (
@@ -478,7 +476,7 @@ func (e *remotesamplingExporter) startSamplingDecisionReceiver() {
 
 	go func() {
 		if err := http.ListenAndServe("0.0.0.0:10429", nil); err != nil {
-			logger.Fatalf("failed to start HTTP server: %s", err)
+			e.logger.Fatal("failed to start HTTP server", zap.Error(err))
 		}
 	}()
 }
