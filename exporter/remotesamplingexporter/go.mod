@@ -1,4 +1,4 @@
-module go.opentelemetry.io/collector/exporter/otlphttpexporter
+module go.opentelemetry.io/collector/exporter/remotesamplingexporter
 
 go 1.25.4
 

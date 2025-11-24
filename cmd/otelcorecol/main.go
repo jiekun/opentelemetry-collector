@@ -4,6 +4,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"go.opentelemetry.io/collector/component"
@@ -14,6 +15,10 @@ import (
 	httpsprovider "go.opentelemetry.io/collector/confmap/provider/httpsprovider"
 	yamlprovider "go.opentelemetry.io/collector/confmap/provider/yamlprovider"
 	"go.opentelemetry.io/collector/otelcol"
+)
+
+var (
+	flags = flag.String("config", "", "")
 )
 
 func main() {
@@ -46,7 +51,8 @@ func main() {
 		},
 		ConverterModules: []string{},
 	}
-
+	
+	flag.Parse()
 	if err := run(set); err != nil {
 		log.Fatal(err)
 	}

@@ -1,15 +1,15 @@
-type: otlphttp
+type: remotesampling
 github_project: open-telemetry/opentelemetry-collector
 
 status:
   disable_codecov_badge: true
   class: exporter
   stability:
-    stable: [traces, metrics, logs]
-    development: [profiles]
+    stable: [traces]
+    development: []
   distributions: [core, contrib, k8s, otlp]
 
 tests:
   config:
-    endpoint: "https://1.2.3.4:1234"
-
+    traces_endpoint: "https://1.2.3.4:1234"
+    trace_sampling_url: "https://1.2.3.4:1234"

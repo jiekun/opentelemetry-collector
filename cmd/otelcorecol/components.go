@@ -11,6 +11,7 @@ import (
 	nopexporter "go.opentelemetry.io/collector/exporter/nopexporter"
 	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
 	otlphttpexporter "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+	remotesamplingexporter "go.opentelemetry.io/collector/exporter/remotesamplingexporter"
 	"go.opentelemetry.io/collector/extension"
 	memorylimiterextension "go.opentelemetry.io/collector/extension/memorylimiterextension"
 	zpagesextension "go.opentelemetry.io/collector/extension/zpagesextension"
@@ -57,6 +58,7 @@ func components() (otelcol.Factories, error) {
 		nopexporter.NewFactory(),
 		otlpexporter.NewFactory(),
 		otlphttpexporter.NewFactory(),
+		remotesamplingexporter.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
@@ -66,6 +68,7 @@ func components() (otelcol.Factories, error) {
 	factories.ExporterModules[nopexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/nopexporter v0.140.0"
 	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter v0.140.0"
 	factories.ExporterModules[otlphttpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlphttpexporter v0.140.0"
+	factories.ExporterModules[remotesamplingexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/remotesamplingexporter v0.140.0"
 
 	factories.Processors, err = otelcol.MakeFactoryMap[processor.Factory](
 		batchprocessor.NewFactory(),

@@ -2,7 +2,7 @@
 
 module go.opentelemetry.io/collector/cmd/otelcorecol
 
-go 1.24.0
+go 1.25.4
 
 require (
 	go.opentelemetry.io/collector/component v1.46.0
@@ -19,6 +19,7 @@ require (
 	go.opentelemetry.io/collector/exporter/nopexporter v0.140.0
 	go.opentelemetry.io/collector/exporter/otlpexporter v0.140.0
 	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.140.0
+	go.opentelemetry.io/collector/exporter/remotesamplingexporter v0.140.0
 	go.opentelemetry.io/collector/extension v1.46.0
 	go.opentelemetry.io/collector/extension/memorylimiterextension v0.140.0
 	go.opentelemetry.io/collector/extension/zpagesextension v0.140.0
@@ -34,10 +35,13 @@ require (
 )
 
 require (
+	github.com/VictoriaMetrics/VictoriaMetrics v1.130.0 // indirect
+	github.com/VictoriaMetrics/metrics v1.40.2 // indirect
+	github.com/VictoriaMetrics/metricsql v0.84.8 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/foxboron/go-tpm-keyfiles v0.0.0-20250903184740-5d135037bd4d // indirect
@@ -50,7 +54,7 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/go-tpm v0.9.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc // indirect
+	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -67,7 +71,7 @@ require (
 	github.com/mostynb/go-grpc-compression v1.2.3 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -81,8 +85,13 @@ require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fastrand v1.1.0 // indirect
+	github.com/valyala/gozstd v1.24.0 // indirect
+	github.com/valyala/histogram v1.2.0 // indirect
+	github.com/valyala/quicktemplate v1.8.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/collector v0.140.0 // indirect
 	go.opentelemetry.io/collector/client v1.46.0 // indirect
 	go.opentelemetry.io/collector/component/componentstatus v0.140.0 // indirect
@@ -164,15 +173,17 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/net v0.45.0 // indirect
+	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9 // indirect
+	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251007200510-49b9836ed3ff // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff // indirect
 	google.golang.org/grpc v1.76.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/apimachinery v0.34.1 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 )
 
 replace go.opentelemetry.io/collector => ../../
@@ -256,6 +267,8 @@ replace go.opentelemetry.io/collector/exporter/nopexporter => ../../exporter/nop
 replace go.opentelemetry.io/collector/exporter/otlpexporter => ../../exporter/otlpexporter
 
 replace go.opentelemetry.io/collector/exporter/otlphttpexporter => ../../exporter/otlphttpexporter
+
+replace go.opentelemetry.io/collector/exporter/remotesamplingexporter => ../../exporter/remotesamplingexporter
 
 replace go.opentelemetry.io/collector/extension => ../../extension
 

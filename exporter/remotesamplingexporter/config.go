@@ -1,12 +1,13 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otlphttpexporter // import "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+package remotesamplingexporter // import "go.opentelemetry.io/collector/exporter/remotesamplingexporter"
 
 import (
 	"encoding"
 	"errors"
 	"fmt"
+	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
@@ -63,6 +64,15 @@ type Config struct {
 
 	// The encoding to export telemetry (default: "proto")
 	Encoding EncodingType `mapstructure:"encoding"`
+
+	// Path to directory for storing pending data. (default "otlp-data")
+	TmpDataPath string `mapstructure:"tmp_data_path"`
+
+	// URL to the sampling server. required.
+	TraceSamplingURL string `mapstructure:"trace_sampling_url"`
+
+	// Wait duration since the trace data was added to pending queue. (default "30s")
+	DecisionWait time.Duration `mapstructure:"decision_wait"`
 }
 
 var _ component.Config = (*Config)(nil)

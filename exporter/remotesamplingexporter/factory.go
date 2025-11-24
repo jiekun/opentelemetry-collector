@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otlphttpexporter // import "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+package remotesamplingexporter // import "go.opentelemetry.io/collector/exporter/remotesamplingexporter"
 
 import (
 	"context"
@@ -18,19 +18,16 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper"
-	"go.opentelemetry.io/collector/exporter/otlphttpexporter/internal/metadata"
+	"go.opentelemetry.io/collector/exporter/remotesamplingexporter/internal/metadata"
 	"go.opentelemetry.io/collector/exporter/xexporter"
 )
 
-// NewFactory creates a factory for OTLP exporter.
+// NewFactory creates a factory for remote sampling exporter.
 func NewFactory() exporter.Factory {
 	return xexporter.NewFactory(
 		metadata.Type,
 		createDefaultConfig,
 		xexporter.WithTraces(createTraces, metadata.TracesStability),
-		xexporter.WithMetrics(createMetrics, metadata.MetricsStability),
-		xexporter.WithLogs(createLogs, metadata.LogsStability),
-		xexporter.WithProfiles(createProfiles, metadata.ProfilesStability),
 	)
 }
 
@@ -47,6 +44,9 @@ func createDefaultConfig() component.Config {
 		QueueConfig:  exporterhelper.NewDefaultQueueConfig(),
 		Encoding:     EncodingProto,
 		ClientConfig: clientConfig,
+
+		TmpDataPath:  "./otlp-data",
+		DecisionWait: 30 * time.Second,
 	}
 }
 

@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package otlphttpexporter // import "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+package remotesamplingexporter // import "go.opentelemetry.io/collector/exporter/remotesamplingexporter"
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,12 +45,11 @@ var (
 	writeRequestBufPool bytesutil.ByteBufferPool
 )
 
-var (
-	tmpDataPath  = flag.String("remotesampling.tmpDataPath", "otlp-data", "Path to directory for storing pending data.")
-	decisionWait = flag.Duration("remotesampling.DecisionWait", 30*time.Second, "Wait duration since the trace data was added to pending queue.")
-)
-
 type samplingRequest struct {
+	samplingTraceList []samplingTrace `json:"sampling_trace_list"`
+}
+
+type samplingTrace struct {
 	traceID    string `json:"trace_id"`
 	startTime  uint64 `json:"start_time"`
 	endTime    uint64 `json:"end_time"`
@@ -64,19 +62,19 @@ type samplingDecision struct {
 
 type remotesamplingExporter struct {
 	// Input configuration.
-	config            *Config
-	client            *http.Client
-	tracesURL         string
-	tracesSamplingURL string
-	metricsURL        string
-	logsURL           string
-	profilesURL       string
-	logger            *zap.Logger
-	settings          component.TelemetrySettings
+	config      *Config
+	client      *http.Client
+	tracesURL   string
+	metricsURL  string
+	logsURL     string
+	profilesURL string
+	logger      *zap.Logger
+	settings    component.TelemetrySettings
 	// Default user-agent header.
 	userAgent string
 
-	// persistentqueue
+	// remote sampling related
+	tracesSamplingURL     string
 	fq                    *persistentqueue.FastQueue
 	sampledTraceIDMapCur  *sync.Map
 	sampledTraceIDMapPrev *sync.Map
@@ -103,21 +101,29 @@ func newExporter(cfg component.Config, set exporter.Settings) (*remotesamplingEx
 		}
 	}
 
+	if oCfg.TraceSamplingURL == "" {
+		return nil, errors.New("TraceSamplingURL must be set")
+	}
+	if _, err := url.Parse(oCfg.TraceSamplingURL); err != nil {
+		return nil, errors.New("trace_sampling_url must be a valid URL to the sampling server")
+	}
+
 	userAgent := fmt.Sprintf("%s/%s (%s/%s)",
 		set.BuildInfo.Description, set.BuildInfo.Version, runtime.GOOS, runtime.GOARCH)
 
 	// create persistent queue
 	h := xxhash.Sum64([]byte(oCfg.ClientConfig.Endpoint))
-	queuePath := filepath.Join(*tmpDataPath, persistentQueueDirname, fmt.Sprintf("%016X", h))
+	queuePath := filepath.Join(oCfg.TmpDataPath, persistentQueueDirname, fmt.Sprintf("%016X", h))
 
 	fq := persistentqueue.MustOpenFastQueue(queuePath, oCfg.ClientConfig.Endpoint, 4, 0, false)
 
 	// client construction is deferred to start
 	return &remotesamplingExporter{
-		config:    oCfg,
-		logger:    set.Logger,
-		userAgent: userAgent,
-		settings:  set.TelemetrySettings,
+		config:            oCfg,
+		logger:            set.Logger,
+		userAgent:         userAgent,
+		settings:          set.TelemetrySettings,
+		tracesSamplingURL: oCfg.TraceSamplingURL,
 
 		fq:                    fq,
 		sampledTraceIDMapCur:  &sync.Map{},
@@ -143,7 +149,9 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 
 	// construct sampling request
 	sc := td.SpanCount()
-	sr := make([]*samplingRequest, 0, sc)
+	sr := samplingRequest{
+		samplingTraceList: make([]samplingTrace, 0, sc),
+	}
 	traceIDMap := make(map[[16]byte]struct{})
 
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
@@ -151,7 +159,7 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 			for k := 0; k < td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().Len(); k++ {
 				tid := td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).TraceID()
 				traceIDMap[tid] = struct{}{}
-				sr = append(sr, &samplingRequest{
+				sr.samplingTraceList = append(sr.samplingTraceList, samplingTrace{
 					traceID:    tid.String(),
 					startTime:  uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).StartTimestamp()),
 					endTime:    uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).EndTimestamp()),
@@ -413,7 +421,7 @@ func (e *remotesamplingExporter) consumeExportTraceRequest() {
 
 	// read timestamp, and block the goroutine if the wait duration is not met *decisionWait
 	addTimestamp := time.Unix(int64(binary.BigEndian.Uint32(bb.B[0:4])), 0)
-	shouldWaitDuration := *decisionWait - time.Since(addTimestamp)
+	shouldWaitDuration := e.config.DecisionWait - time.Since(addTimestamp)
 	if shouldWaitDuration > 0 {
 		time.Sleep(shouldWaitDuration)
 	}

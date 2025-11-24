@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	Type      = component.MustNewType("otlphttp")
-	ScopeName = "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+	Type      = component.MustNewType("remotesampling")
+	ScopeName = "go.opentelemetry.io/collector/exporter/remotesamplingexporter"
 )
 
 const (
