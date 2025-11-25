@@ -45,15 +45,15 @@ var (
 	writeRequestBufPool bytesutil.ByteBufferPool
 )
 
-type samplingRequest struct {
-	samplingTraceList []samplingTrace `json:"sampling_trace_list"`
+type SamplingRequest struct {
+	SamplingTraceList []*SamplingTrace `json:"sampling_trace_list"`
 }
 
-type samplingTrace struct {
-	traceID    string `json:"trace_id"`
-	startTime  uint64 `json:"start_time"`
-	endTime    uint64 `json:"end_time"`
-	statusCode int32  `json:"status_code"`
+type SamplingTrace struct {
+	TraceID    string `json:"trace_id"`
+	StartTime  uint64 `json:"start_time"`
+	EndTime    uint64 `json:"end_time"`
+	StatusCode int32  `json:"status_code"`
 }
 
 type samplingDecision struct {
@@ -141,6 +141,10 @@ func (e *remotesamplingExporter) start(ctx context.Context, host component.Host)
 	}
 	e.client = client
 
+	e.startSamplingDecisionReceiver()
+	e.startDecisionCleaner()
+	e.startBufferExporter()
+
 	return nil
 }
 
@@ -149,8 +153,8 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 
 	// construct sampling request
 	sc := td.SpanCount()
-	sr := samplingRequest{
-		samplingTraceList: make([]samplingTrace, 0, sc),
+	sr := SamplingRequest{
+		SamplingTraceList: make([]*SamplingTrace, 0, sc),
 	}
 	traceIDMap := make(map[[16]byte]struct{})
 
@@ -159,11 +163,11 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 			for k := 0; k < td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().Len(); k++ {
 				tid := td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).TraceID()
 				traceIDMap[tid] = struct{}{}
-				sr.samplingTraceList = append(sr.samplingTraceList, samplingTrace{
-					traceID:    tid.String(),
-					startTime:  uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).StartTimestamp()),
-					endTime:    uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).EndTimestamp()),
-					statusCode: int32(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).Status().Code()),
+				sr.SamplingTraceList = append(sr.SamplingTraceList, &SamplingTrace{
+					TraceID:    tid.String(),
+					StartTime:  uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).StartTimestamp()),
+					EndTime:    uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).EndTimestamp()),
+					StatusCode: int32(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).Status().Code()),
 				})
 			}
 		}
@@ -180,15 +184,20 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 	// append current timestamp in seconds to the first 4 byte of the buffer
 	binary.BigEndian.PutUint32(bb.B[0:4], uint32(time.Now().Unix()))
 	// append int32 traceID count to 4 byte of the buffer after timestamp.
-	binary.BigEndian.PutUint32(bb.B[4:8], uint32(sc))
+	binary.BigEndian.PutUint32(bb.B[4:8], uint32(len(traceIDMap)))
 	// append traceIDBuf to the buffer
-	bb.Write(traceIDBuf)
+	copy(bb.B[8:8+len(traceIDBuf)], traceIDBuf)
 	// finally, append export exportTraceServiceRequest to the rest buffer
-	exportTraceServiceRequest.MarshalProtoTo(bb.B[8+len(traceIDBuf):])
+	exportTraceServiceRequest.MarshalProtoTo(bb.B[8+len(traceIDBuf) : len(bb.B)])
+	//rb, err := exportTraceServiceRequest.MarshalProto()
+	//if err != nil {
+	//	return err
+	//}
+	//bb.MustWrite(rb)
 	e.fq.TryWriteBlock(bb.B)
 	writeRequestBufPool.Put(bb)
 
-	srb, err := json.Marshal(sr)
+	srb, err := json.Marshal(&sr)
 	if err != nil {
 		e.logger.Error("failed to marshal traces sampling request", zap.Error(err))
 		return err
@@ -447,10 +456,10 @@ func (e *remotesamplingExporter) consumeExportTraceRequest() {
 		}
 	}
 
+	//if !isSampled {
 	if !isSampled {
 		return
 	}
-
 	// send to destination
 	if err := e.export(context.TODO(), e.tracesURL, bb.B[8+int(traceIDCount)*16:], e.tracesPartialSuccessHandler); err != nil {
 		e.logger.Error("failed to export traces", zap.Error(err))

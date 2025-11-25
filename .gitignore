@@ -36,3 +36,6 @@ go.work*
 # npm (used for markdown-link-check)
 node_modules/*
 package-lock.json
+
+# tmp queue files
+otlp-data
