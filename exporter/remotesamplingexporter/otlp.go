@@ -56,8 +56,8 @@ type SamplingTrace struct {
 	StatusCode int32  `json:"status_code"`
 }
 
-type samplingDecision struct {
-	traceIDList []string `json:"trace_id_list"`
+type SamplingDecision struct {
+	TraceIDList []string `json:"trace_id_list"`
 }
 
 type remotesamplingExporter struct {
@@ -389,7 +389,7 @@ func (e *remotesamplingExporter) pushProfiles(ctx context.Context, td pprofile.P
 
 func (e *remotesamplingExporter) startDecisionCleaner() {
 	go func() {
-		ticker := time.NewTicker(150 * time.Millisecond)
+		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -471,7 +471,7 @@ func (e *remotesamplingExporter) consumeExportTraceRequest() {
 func (e *remotesamplingExporter) startSamplingDecisionReceiver() {
 	// create HTTP server to receive remote sampling decisions.
 	http.HandleFunc("/api/v1/remotesampling_decision", func(w http.ResponseWriter, req *http.Request) {
-		decision := &samplingDecision{}
+		decision := &SamplingDecision{}
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			e.logger.Error("error reading body", zap.Error(err))
@@ -484,8 +484,9 @@ func (e *remotesamplingExporter) startSamplingDecisionReceiver() {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		for i := range decision.traceIDList {
-			e.sampledTraceIDMapCur.LoadOrStore(decision.traceIDList[i], struct{}{})
+		e.logger.Info("received sampled decision", zap.Int("count", len(decision.TraceIDList)))
+		for i := range decision.TraceIDList {
+			e.sampledTraceIDMapCur.LoadOrStore(decision.TraceIDList[i], struct{}{})
 		}
 		w.WriteHeader(http.StatusOK)
 		return
