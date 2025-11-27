@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -156,15 +155,12 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 	sr := SamplingRequest{
 		SamplingTraceList: make([]*SamplingTrace, 0, sc),
 	}
-	traceIDMap := make(map[[16]byte]struct{})
 
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		for j := 0; j < td.ResourceSpans().At(i).ScopeSpans().Len(); j++ {
 			for k := 0; k < td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().Len(); k++ {
-				tid := td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).TraceID()
-				traceIDMap[tid] = struct{}{}
 				sr.SamplingTraceList = append(sr.SamplingTraceList, &SamplingTrace{
-					TraceID:    tid.String(),
+					TraceID:    td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).TraceID().String(),
 					StartTime:  uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).StartTimestamp()),
 					EndTime:    uint64(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).EndTimestamp()),
 					StatusCode: int32(td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().At(k).Status().Code()),
@@ -173,27 +169,13 @@ func (e *remotesamplingExporter) pushTraces(ctx context.Context, td ptrace.Trace
 		}
 	}
 
-	traceIDBuf := make([]byte, 0, len(traceIDMap)*16)
-	for k := range traceIDMap {
-		traceIDBuf = append(traceIDBuf, k[:]...)
-	}
-
 	// push trace to pq
 	bb := writeRequestBufPool.Get()
-	bb.B = bytesutil.ResizeNoCopyNoOverallocate(bb.B, 8+len(traceIDBuf)+exportTraceServiceRequest.SizeProto())
+	bb.B = bytesutil.ResizeNoCopyNoOverallocate(bb.B, 4+exportTraceServiceRequest.SizeProto())
 	// append current timestamp in seconds to the first 4 byte of the buffer
 	binary.BigEndian.PutUint32(bb.B[0:4], uint32(time.Now().Unix()))
-	// append int32 traceID count to 4 byte of the buffer after timestamp.
-	binary.BigEndian.PutUint32(bb.B[4:8], uint32(len(traceIDMap)))
-	// append traceIDBuf to the buffer
-	copy(bb.B[8:8+len(traceIDBuf)], traceIDBuf)
 	// finally, append export exportTraceServiceRequest to the rest buffer
-	exportTraceServiceRequest.MarshalProtoTo(bb.B[8+len(traceIDBuf) : len(bb.B)])
-	//rb, err := exportTraceServiceRequest.MarshalProto()
-	//if err != nil {
-	//	return err
-	//}
-	//bb.MustWrite(rb)
+	exportTraceServiceRequest.MarshalProtoTo(bb.B[4:len(bb.B)])
 	e.fq.TryWriteBlock(bb.B)
 	writeRequestBufPool.Put(bb)
 
@@ -435,33 +417,43 @@ func (e *remotesamplingExporter) consumeExportTraceRequest() {
 		time.Sleep(shouldWaitDuration)
 	}
 
-	// read the length of trace ID.
-	traceIDCount := binary.BigEndian.Uint32(bb.B[4:8])
-	if traceIDCount == 0 {
+	er := ptraceotlp.NewExportRequest()
+	err := er.UnmarshalProto(bb.B[4:])
+	if err != nil {
+		e.logger.Error("failed to unmarshal trace from disk queue", zap.Error(err))
 		return
 	}
 
+	dropSpanCnt := 0
+
 	// read trace IDs
-	isSampled := false
-	for idx := 8; idx < 8+int(traceIDCount)*16; idx += 16 {
-		traceIDBytes := bb.B[idx : idx+16]
-		traceID := hex.EncodeToString(traceIDBytes)
-		if _, exist := e.sampledTraceIDMapCur.Load(traceID); exist {
-			isSampled = true
-			break
-		}
-		if _, exist := e.sampledTraceIDMapPrev.Load(traceID); exist {
-			isSampled = true
-			break
+	td := er.Traces()
+	for i := 0; i < td.ResourceSpans().Len(); i++ {
+		for j := 0; j < td.ResourceSpans().At(i).ScopeSpans().Len(); j++ {
+			td.ResourceSpans().At(i).ScopeSpans().At(j).Spans().RemoveIf(func(s ptrace.Span) bool {
+				if _, exist := e.sampledTraceIDMapCur.Load(s.TraceID().String()); exist {
+					return false
+				}
+				if _, exist := e.sampledTraceIDMapPrev.Load(s.TraceID().String()); exist {
+					return false
+				}
+				dropSpanCnt++
+				return true
+			})
 		}
 	}
 
-	//if !isSampled {
-	if !isSampled {
+	if td.SpanCount() == 0 {
+		return
+	}
+	// prepare
+	sampledReq, err := er.MarshalProto()
+	if err != nil {
+		e.logger.Error("failed to marshal trace after sampling", zap.Error(err))
 		return
 	}
 	// send to destination
-	if err := e.export(context.TODO(), e.tracesURL, bb.B[8+int(traceIDCount)*16:], e.tracesPartialSuccessHandler); err != nil {
+	if err := e.export(context.TODO(), e.tracesURL, sampledReq, e.tracesPartialSuccessHandler); err != nil {
 		e.logger.Error("failed to export traces", zap.Error(err))
 	}
 }
