@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/collector/processor"
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
 	memorylimiterprocessor "go.opentelemetry.io/collector/processor/memorylimiterprocessor"
+	retroactivesamplingprocessor "go.opentelemetry.io/collector/processor/retroactivesamplingprocessor"
 	"go.opentelemetry.io/collector/receiver"
 	nopreceiver "go.opentelemetry.io/collector/receiver/nopreceiver"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
@@ -72,6 +73,7 @@ func components() (otelcol.Factories, error) {
 
 	factories.Processors, err = otelcol.MakeFactoryMap[processor.Factory](
 		batchprocessor.NewFactory(),
+		retroactivesamplingprocessor.NewFactory(),
 		memorylimiterprocessor.NewFactory(),
 	)
 	if err != nil {
@@ -79,6 +81,7 @@ func components() (otelcol.Factories, error) {
 	}
 	factories.ProcessorModules = make(map[component.Type]string, len(factories.Processors))
 	factories.ProcessorModules[batchprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/batchprocessor v0.140.0"
+	factories.ProcessorModules[retroactivesamplingprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/retroactivesamplingprocessor v0.140.0"
 	factories.ProcessorModules[memorylimiterprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.140.0"
 
 	factories.Connectors, err = otelcol.MakeFactoryMap[connector.Factory](
