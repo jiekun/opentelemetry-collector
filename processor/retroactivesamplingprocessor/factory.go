@@ -18,6 +18,7 @@ import (
 const (
 	defaultTimeout      = 1000 * time.Millisecond
 	defaultDecisionWait = 30 * time.Second
+	defaultSamplingRate = 0 // 1 means 1%. [0, 100]
 )
 
 // NewFactory returns a new factory for the Batch processor.
@@ -34,6 +35,7 @@ func createDefaultConfig() component.Config {
 		Timeout:      defaultTimeout,
 		TmpDataPath:  "./otlp-data",
 		DecisionWait: defaultDecisionWait,
+		SamplingRate: defaultSamplingRate,
 	}
 }
 

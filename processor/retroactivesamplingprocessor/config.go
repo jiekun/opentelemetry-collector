@@ -29,6 +29,9 @@ type Config struct {
 	// Wait duration since the trace data was added to pending queue. (default "30s")
 	DecisionWait time.Duration `mapstructure:"decision_wait"`
 
+	// Sampling rate if remote server decided not sample. [0, 100]
+	SamplingRate uint64 `mapstructure:"sampling_rate"`
+
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
@@ -40,8 +43,8 @@ func (cfg *Config) Validate() error {
 	if len(cfg.RetroactiveSamplingURLs) == 0 {
 		return errors.New("retroactive_sampling_urls must be set")
 	}
-	if cfg.DecisionWait < 0 {
-		return errors.New("decision_wait must be greater or equal to 0")
+	if cfg.DecisionWait <= 0 {
+		return errors.New("decision_wait must be greater than 0")
 	}
 	if cfg.Timeout < 0 {
 		return errors.New("timeout must be greater or equal to 0")
